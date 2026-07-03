@@ -145,7 +145,10 @@ export default function TemperamentClock() {
     getAudio();
     const steps = mode === "spiral" ? 13 : 12;
     for (let i = 0; i < steps; i++) strike(i, i * 0.55, 1.6, mode);
-    setTimeout(() => setTouring(false), steps * 550 + 800);
+    setTimeout(() => {
+      setTouring(false);
+      setActiveStep(null);
+    }, steps * 550 + 800);
     // The thread overlay animates off the tour clock; this timeout only
     // removes it once it has fully faded.
     setTourAnim({ mode, startedAt: Date.now() });
@@ -271,13 +274,6 @@ export default function TemperamentClock() {
         .ring-pulse { animation: ringPulse 1.4s ease-out; transform-origin: center; }
         @keyframes ringPulse { 0% { opacity: 0.9; } 100% { opacity: 0; } }
 
-        .struck {
-          animation: strikePop 1.2s cubic-bezier(0.22, 0.8, 0.3, 1);
-          transform-box: fill-box;
-          transform-origin: center;
-        }
-        @keyframes strikePop { 0% { transform: scale(1); } 10% { transform: scale(1.09); } 100% { transform: scale(1); } }
-
         /* Animated OKLCH, used only where the motion carries meaning: */
 
         /* 1. The tempered fifth beats at ${BEAT_HZ.toFixed(3)} Hz — the glow's
@@ -305,7 +301,7 @@ export default function TemperamentClock() {
         @keyframes sweep { to { transform: rotate(360deg); } }
 
         @media (prefers-reduced-motion: reduce) {
-          .ring-pulse, .struck, .dyad-tempered, .hour-dot, .sec-sweep { animation: none; }
+          .ring-pulse, .dyad-tempered, .hour-dot, .sec-sweep { animation: none; }
           .ring-pulse { opacity: 0; }
           .dyad-tempered { fill: oklch(0.85 0.152 90); }
         }
@@ -426,19 +422,32 @@ export default function TemperamentClock() {
                 <circle className="ring-pulse" cx={x} cy={y} r={26} fill="none" stroke={BRASS} strokeWidth="1" />
               )}
               <circle className="hit" cx={x} cy={y} r={22} fill="transparent" stroke="none" strokeWidth="1" />
-              <text
-                className={`note-label ${isRinging ? "struck" : ""} ${dyadClass}`}
-                x={x}
-                y={y + (n.sub ? -2 : 1)}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fontSize={n.sub ? 21 : 27}
-                fontWeight={600}
-                fill={isRinging ? BRASS : isHour ? INK : DIM}
-                style={{ transition: "fill 0.6s ease" }}
-              >
-                {n.label}
-              </text>
+              <g transform={`translate(${x} ${y})`}>
+                <g>
+                  {isRinging && !prefersReducedMotion && (
+                    <animateTransform
+                      attributeName="transform"
+                      type="scale"
+                      values="1;1.09;1"
+                      keyTimes="0;0.1;1"
+                      dur="1.2s"
+                    />
+                  )}
+                  <text
+                    className={`note-label ${dyadClass}`}
+                    x={0}
+                    y={n.sub ? -2 : 1}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    fontSize={n.sub ? 21 : 27}
+                    fontWeight={600}
+                    fill={isRinging ? BRASS : isHour ? INK : DIM}
+                    style={{ transition: "fill 0.6s ease" }}
+                  >
+                    {n.label}
+                  </text>
+                </g>
+              </g>
               {n.sub && (
                 <text
                   className="note-label"
@@ -569,7 +578,7 @@ export default function TemperamentClock() {
           </span>
         </div>
         <div style={{ marginTop: 6, fontSize: 11, color: BRASS, letterSpacing: "0.16em", minHeight: 16 }}>
-          {tourAnim?.mode === "spiral" && activeStep !== null && (
+          {touring && tourAnim?.mode === "spiral" && activeStep !== null && (
             <>
               CHAIN STEP {activeStep} · {FIFTH_CHAIN_LABELS[activeStep]}
               {activeStep === 12 ? ` · +${PYTHAGOREAN_COMMA_CENTS.toFixed(2)}¢` : ""}
