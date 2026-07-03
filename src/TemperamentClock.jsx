@@ -29,7 +29,6 @@ const BTN_BORDER = "oklch(0.349 0.003 286.2)";
 
 export default function TemperamentClock() {
   const [now, setNow] = useState(() => new Date());
-  const [soundOn, setSoundOn] = useState(false);
   const [activeIdx, setActiveIdx] = useState(null);   // face position (mod 12)
   const [activeStep, setActiveStep] = useState(null); // absolute chain step (0–12)
   const [touring, setTouring] = useState(false);
@@ -42,7 +41,6 @@ export default function TemperamentClock() {
   const audioEngineRef = useRef(null);
   const dyadNodesRef = useRef(null);
   const guidedTimersRef = useRef([]);
-  const lastHourRef = useRef(null);
   // Sync the CSS-driven second hand to real time once at mount.
   const [secOffset] = useState(() => (Date.now() / 1000) % 60);
   const [prefersReducedMotion] = useState(
@@ -135,17 +133,6 @@ export default function TemperamentClock() {
   const seconds = now.getSeconds();
   const hour12 = hours % 12 === 0 ? 12 : hours % 12;
   const hourIdx = NOTES.findIndex((n) => n.hour === hour12);
-
-  useEffect(() => {
-    if (lastHourRef.current === null) {
-      lastHourRef.current = hours;
-      return;
-    }
-    if (hours !== lastHourRef.current) {
-      lastHourRef.current = hours;
-      if (soundOn) strike(hourIdx);
-    }
-  }, [hours, soundOn, hourIdx, strike]);
 
   // Tours. "Circle": 12 octave-folded 12-TET pitch classes; the thread closes.
   // "Spiral": 13 strikes walk twelve literal pure 3:2 fifths up from C2; the
@@ -334,6 +321,7 @@ export default function TemperamentClock() {
           font-family: inherit;
           font-size: 11px;
           letter-spacing: 0.14em;
+          white-space: nowrap;
           cursor: pointer;
           transition: border-color 0.3s ease, color 0.3s ease, background 0.3s ease, opacity 0.3s ease;
         }
@@ -345,6 +333,28 @@ export default function TemperamentClock() {
         /* First-run invitation: primary by brass, not by size or chrome. */
         .btn-invite { border-color: oklch(0.728 0.138 89.7 / 0.65); color: ${BRASS}; }
         .btn-invite:hover:not(:disabled) { border-color: ${BRASS}; color: oklch(0.82 0.15 90); }
+
+        /* Controls: one primary action, then two even pairs (see / hear).
+           Equal-width grid cells keep the rows tidy; pairs stack on phones. */
+        .controls {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 10px;
+          width: min(100%, 360px);
+          margin-top: 20px;
+        }
+        .control-pair {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
+          width: 100%;
+        }
+        .control-pair .btn { width: 100%; }
+        .btn-primary { width: 100%; }
+        @media (max-width: 400px) {
+          .control-pair { grid-template-columns: 1fr; }
+        }
         .btn:disabled { opacity: 0.45; cursor: default; }
         .btn:focus-visible { outline: 1px solid ${BRASS}; outline-offset: 3px; }
 
@@ -567,44 +577,32 @@ export default function TemperamentClock() {
         </div>
       </div>
 
-      <div style={{ marginTop: 14, display: "flex", justifyContent: "center" }}>
+      <div className="controls">
         <button
-          className={`btn ${guided ? "active" : !guidedUsed ? "btn-invite" : ""}`}
+          className={`btn btn-primary ${guided ? "active" : !guidedUsed ? "btn-invite" : ""}`}
           onClick={hearTheProblem}
           disabled={touring && !guided}
         >
           {guided ? "listening… · tap to stop" : "hear the problem"}
         </button>
-      </div>
 
-      <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
-        <button className="btn" onClick={() => runTour("circle")} disabled={touring || !!guided}>
-          {touring && lastTour === "circle" ? "touring…" : "tour the circle"}
-        </button>
-        <button className="btn" onClick={() => runTour("spiral")} disabled={touring || !!guided}>
-          {touring && lastTour === "spiral" ? "climbing…" : "climb the spiral"}
-        </button>
-        <button
-          className={`btn ${soundOn ? "active" : ""}`}
-          onClick={() => {
-            getAudio();
-            setSoundOn((s) => !s);
-          }}
-        >
-          {soundOn ? "chime · on" : "chime · off"}
-        </button>
-      </div>
+        <div className="control-pair">
+          <button className="btn" onClick={() => runTour("circle")} disabled={touring || !!guided}>
+            {touring && lastTour === "circle" ? "touring…" : "tour the circle"}
+          </button>
+          <button className="btn" onClick={() => runTour("spiral")} disabled={touring || !!guided}>
+            {touring && lastTour === "spiral" ? "climbing…" : "climb the spiral"}
+          </button>
+        </div>
 
-      <div style={{ marginTop: 18, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
-        <span style={{ fontSize: 9, letterSpacing: "0.24em", color: DIM, textTransform: "uppercase" }}>
-          Hold a fifth
-        </span>
-        <button className={`btn ${dyad === "pure" ? "active" : ""}`} onClick={() => holdFifth("pure")} disabled={touring || !!guided}>
-          pure · 3:2
-        </button>
-        <button className={`btn ${dyad === "tempered" ? "active" : ""}`} onClick={() => holdFifth("tempered")} disabled={touring || !!guided}>
-          tempered · 12-tet
-        </button>
+        <div className="control-pair">
+          <button className={`btn ${dyad === "pure" ? "active" : ""}`} onClick={() => holdFifth("pure")} disabled={touring || !!guided}>
+            pure fifth
+          </button>
+          <button className={`btn ${dyad === "tempered" ? "active" : ""}`} onClick={() => holdFifth("tempered")} disabled={touring || !!guided}>
+            tempered fifth
+          </button>
+        </div>
       </div>
 
       <div
