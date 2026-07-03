@@ -32,7 +32,7 @@ export const G4_ET = etFreqOf(-2);
 export const BEAT_HZ = Math.abs(3 * C4_FREQ - 2 * G4_ET);
 export const BEAT_PERIOD_S = 1 / BEAT_HZ;
 
-// Step 7 is C♯, not D♭: the face keeps key-signature spelling; the chain keeps its own.
+// From step 7 onward, show the literal chain spelling first and the face spelling second.
 export const FIFTH_CHAIN_LABELS = [
   "C",
   "G",
@@ -41,12 +41,12 @@ export const FIFTH_CHAIN_LABELS = [
   "E",
   "B",
   "F♯",
-  "C♯",
-  "G♯",
-  "D♯",
-  "A♯",
-  "E♯/F",
-  "B♯ (≈C)",
+  "C♯ / D♭",
+  "G♯ / A♭",
+  "D♯ / E♭",
+  "A♯ / B♭",
+  "E♯ / F",
+  "B♯ / C",
 ];
 
 export const CAPTIONS = {
