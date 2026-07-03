@@ -50,7 +50,13 @@ export const FIFTH_CHAIN_LABELS = [
 ];
 
 export const CAPTIONS = {
+  invite: "Start here: hear why twelve pure fifths cannot close the circle.",
   idle: "Tap any note to hear its 12-TET pitch · the breathing dot marks the hour",
+  // Terse copy for the guided sequence; the longer captions below remain for
+  // manual use and take over once the sequence hands off to the spiral tour.
+  guidedPure: "Pure fifth: the harmonics lock.",
+  guidedTempered: "Tempered fifth: the harmonics beat.",
+  guidedSpiral: "Twelve pure fifths miss home by the comma.",
   circle: `Twelve fifths, each tempered ${ET_FIFTH_FLATTENING_CENTS.toFixed(2)}¢ narrow of pure 3:2 — the thread closes because every step absorbs its share of the comma.`,
   spiral: `Twelve pure 3:2 fifths rising from C2 overshoot seven octaves by ${PYTHAGOREAN_COMMA_CENTS.toFixed(2)}¢ — the thread misses its start by the Pythagorean comma.`,
   pure: "Pure fifth · 3:2 — the third harmonic of C lands exactly on the second harmonic of G. The sound locks.",

@@ -37,8 +37,11 @@ export default function TemperamentClock() {
   const [tourNow, setTourNow] = useState(0);
   const [lastTour, setLastTour] = useState(null); // caption persists after a tour ends
   const [dyad, setDyad] = useState(null); // null | "pure" | "tempered"
+  const [guided, setGuided] = useState(null); // null | "pure" | "tempered" | "spiral"
+  const [guidedUsed, setGuidedUsed] = useState(false); // demotes the invitation after first use
   const audioEngineRef = useRef(null);
   const dyadNodesRef = useRef(null);
+  const guidedTimersRef = useRef([]);
   const lastHourRef = useRef(null);
   // Sync the CSS-driven second hand to real time once at mount.
   const [secOffset] = useState(() => (Date.now() / 1000) % 60);
@@ -108,14 +111,23 @@ export default function TemperamentClock() {
     setDyad(null);
   }, []);
 
+  // Unconditional start — the guided sequence needs this so a fifth the user
+  // already had held can't toggle the phase silent.
+  const startFifth = useCallback(
+    (kind) => {
+      stopDyad();
+      dyadNodesRef.current = startHeldFifth({ engine: getAudio(), kind, c4Freq: C4_FREQ, g4Et: G4_ET });
+      setDyad(kind);
+    },
+    [getAudio, stopDyad]
+  );
+
   const holdFifth = (kind) => {
     if (dyad === kind) {
       stopDyad();
       return;
     }
-    stopDyad();
-    dyadNodesRef.current = startHeldFifth({ engine: getAudio(), kind, c4Freq: C4_FREQ, g4Et: G4_ET });
-    setDyad(kind);
+    startFifth(kind);
   };
 
   const hours = now.getHours();
@@ -151,6 +163,43 @@ export default function TemperamentClock() {
     // removes it once it has fully faded.
     setTourAnim({ mode, startedAt: Date.now() });
     setTimeout(() => setTourAnim(null), 12 * 550 + 600 + 1400 + 200);
+  };
+
+  const clearGuidedTimers = () => {
+    guidedTimersRef.current.forEach(clearTimeout);
+    guidedTimersRef.current = [];
+  };
+
+  // A cancelled sequence must not fire late phases into a state that no
+  // longer expects them — same discipline as the audio-engine teardown.
+  useEffect(() => clearGuidedTimers, []);
+
+  // Guided first-run sequence: pure fifth locks (3.5 s), tempered fifth beats
+  // (4.5 s — four beat cycles at ≈0.89 Hz), a breath of silence, then the
+  // spiral tour plays the comma. Clicking again cancels: dyads stop at once;
+  // if the tour has already begun it rings out like any tour.
+  const hearTheProblem = () => {
+    if (guided) {
+      clearGuidedTimers();
+      stopDyad();
+      setGuided(null);
+      return;
+    }
+    if (touring) return;
+    setGuidedUsed(true);
+    startFifth("pure");
+    setGuided("pure");
+    const at = (ms, fn) => guidedTimersRef.current.push(setTimeout(fn, ms));
+    at(3500, () => {
+      startFifth("tempered");
+      setGuided("tempered");
+    });
+    at(8000, () => stopDyad());
+    at(8700, () => {
+      setGuided("spiral");
+      runTour("spiral");
+    });
+    at(8700 + 12 * 550 + 600 + 1400 + 200, () => setGuided(null));
   };
 
   const C = 200;
@@ -190,11 +239,31 @@ export default function TemperamentClock() {
   const currentNote = NOTES[hourIdx];
   const pad = (n) => String(n).padStart(2, "0");
 
-  const captionKey = dyad ? dyad : tourAnim ? tourAnim.mode : lastTour ? lastTour : "idle";
+  // Guided phases outrank the dyad/tour captions they trigger, or the two
+  // systems would flicker against each other; the invitation shows only
+  // until the sequence has been used once.
+  const captionKey = guided
+    ? `guided-${guided}`
+    : dyad
+      ? dyad
+      : tourAnim
+        ? tourAnim.mode
+        : lastTour
+          ? lastTour
+          : guidedUsed
+            ? "idle"
+            : "invite";
   const captionText =
-    captionKey === "circle" || captionKey === "spiral" || captionKey === "pure" || captionKey === "tempered"
-      ? CAPTIONS[captionKey]
-      : CAPTIONS.idle;
+    {
+      "guided-pure": CAPTIONS.guidedPure,
+      "guided-tempered": CAPTIONS.guidedTempered,
+      "guided-spiral": CAPTIONS.guidedSpiral,
+      circle: CAPTIONS.circle,
+      spiral: CAPTIONS.spiral,
+      pure: CAPTIONS.pure,
+      tempered: CAPTIONS.tempered,
+      invite: CAPTIONS.invite,
+    }[captionKey] ?? CAPTIONS.idle;
 
   return (
     <div className="page">
@@ -273,6 +342,9 @@ export default function TemperamentClock() {
           color: oklch(0.97 0.005 89);
         }
         .btn.active { background: ${BRASS}; color: ${BG}; border-color: ${BRASS}; }
+        /* First-run invitation: primary by brass, not by size or chrome. */
+        .btn-invite { border-color: oklch(0.728 0.138 89.7 / 0.65); color: ${BRASS}; }
+        .btn-invite:hover:not(:disabled) { border-color: ${BRASS}; color: oklch(0.82 0.15 90); }
         .btn:disabled { opacity: 0.45; cursor: default; }
         .btn:focus-visible { outline: 1px solid ${BRASS}; outline-offset: 3px; }
 
@@ -495,11 +567,21 @@ export default function TemperamentClock() {
         </div>
       </div>
 
-      <div style={{ marginTop: 14, display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
-        <button className="btn" onClick={() => runTour("circle")} disabled={touring}>
+      <div style={{ marginTop: 14, display: "flex", justifyContent: "center" }}>
+        <button
+          className={`btn ${guided ? "active" : !guidedUsed ? "btn-invite" : ""}`}
+          onClick={hearTheProblem}
+          disabled={touring && !guided}
+        >
+          {guided ? "listening… · tap to stop" : "hear the problem"}
+        </button>
+      </div>
+
+      <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+        <button className="btn" onClick={() => runTour("circle")} disabled={touring || !!guided}>
           {touring && lastTour === "circle" ? "touring…" : "tour the circle"}
         </button>
-        <button className="btn" onClick={() => runTour("spiral")} disabled={touring}>
+        <button className="btn" onClick={() => runTour("spiral")} disabled={touring || !!guided}>
           {touring && lastTour === "spiral" ? "climbing…" : "climb the spiral"}
         </button>
         <button
@@ -517,10 +599,10 @@ export default function TemperamentClock() {
         <span style={{ fontSize: 9, letterSpacing: "0.24em", color: DIM, textTransform: "uppercase" }}>
           Hold a fifth
         </span>
-        <button className={`btn ${dyad === "pure" ? "active" : ""}`} onClick={() => holdFifth("pure")} disabled={touring}>
+        <button className={`btn ${dyad === "pure" ? "active" : ""}`} onClick={() => holdFifth("pure")} disabled={touring || !!guided}>
           pure · 3:2
         </button>
-        <button className={`btn ${dyad === "tempered" ? "active" : ""}`} onClick={() => holdFifth("tempered")} disabled={touring}>
+        <button className={`btn ${dyad === "tempered" ? "active" : ""}`} onClick={() => holdFifth("tempered")} disabled={touring || !!guided}>
           tempered · 12-tet
         </button>
       </div>
@@ -528,6 +610,7 @@ export default function TemperamentClock() {
       <div
         key={captionKey}
         className="caption"
+        aria-live="polite"
         style={{
           marginTop: 22,
           fontSize: 10,
