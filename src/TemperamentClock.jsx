@@ -5,7 +5,6 @@ import {
   C4_FREQ,
   CAPTIONS,
   ET_FIFTH_FLATTENING_CENTS,
-  FIFTH_CHAIN_LABELS,
   G4_ET,
   NOTES,
   PYTHAGOREAN_COMMA_CENTS,
@@ -228,6 +227,7 @@ export default function TemperamentClock() {
 
   const currentNote = NOTES[hourIdx];
   const pad = (n) => String(n).padStart(2, "0");
+  const chainDrift = (step) => step * ET_FIFTH_FLATTENING_CENTS;
 
   // Guided phases outrank the dyad/tour captions they trigger, or the two
   // systems would flicker against each other; the invitation shows only
@@ -578,8 +578,9 @@ export default function TemperamentClock() {
         <div style={{ marginTop: 6, fontSize: 11, color: BRASS, letterSpacing: "0.16em", minHeight: 16 }}>
           {touring && tourAnim?.mode === "spiral" && activeStep !== null && (
             <>
-              CHAIN STEP {activeStep} · {FIFTH_CHAIN_LABELS[activeStep]}
-              {activeStep === 12 ? ` · +${PYTHAGOREAN_COMMA_CENTS.toFixed(2)}¢` : ""}
+              PURE FIFTH {activeStep}
+              {activeStep > 0 ? ` · +${chainDrift(activeStep).toFixed(2)}¢` : ""}
+              {activeStep === 12 ? " · MISSES C" : ""}
             </>
           )}
         </div>

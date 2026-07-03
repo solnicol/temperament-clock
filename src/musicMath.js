@@ -32,23 +32,6 @@ export const G4_ET = etFreqOf(-2);
 export const BEAT_HZ = Math.abs(3 * C4_FREQ - 2 * G4_ET);
 export const BEAT_PERIOD_S = 1 / BEAT_HZ;
 
-// From step 7 onward, show the literal chain spelling first and the face spelling second.
-export const FIFTH_CHAIN_LABELS = [
-  "C",
-  "G",
-  "D",
-  "A",
-  "E",
-  "B",
-  "F♯",
-  "C♯ / D♭",
-  "G♯ / A♭",
-  "D♯ / E♭",
-  "A♯ / B♭",
-  "E♯ / F",
-  "B♯ / C",
-];
-
 export const CAPTIONS = {
   invite: "Start here: hear why twelve pure fifths cannot close the circle.",
   idle: "Tap any note to hear its 12-TET pitch · the breathing dot marks the hour",
