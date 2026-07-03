@@ -1,53 +1,23 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-
-// ————— Circle of fifths, clockwise from 12 o'clock —————
-// Labels are pitch classes ordered by fifths, modulo the octave.
-// Face taps always play 12-TET octave-folded representatives; the literal
-// pure-fifth chain only sounds during "climb the spiral".
-//
-// In pure tuning, twelve stacked fifths do not close:
-// (3/2)^12 overshoots 2^7 by the Pythagorean comma, about 23.46 cents.
-// 12-TET turns the non-closing pure-fifths spiral into a closed 12-step clock
-// by flattening each fifth equally. (Other temperaments close the circle by
-// distributing or localising the comma differently; equal division is one solution.)
-
-const A4 = 440;
-const etFreqOf = (semitonesFromA4) => A4 * Math.pow(2, semitonesFromA4 / 12);
-
-const NOTES = [
-  { label: "C",  sub: null, rel: "Am",  semitoneFromA4: -9, sig: "no sharps or flats", hour: 12 },
-  { label: "G",  sub: null, rel: "Em",  semitoneFromA4: -2, sig: "1 sharp",  hour: 1 },
-  { label: "D",  sub: null, rel: "Bm",  semitoneFromA4: -7, sig: "2 sharps", hour: 2 },
-  { label: "A",  sub: null, rel: "F♯m", semitoneFromA4:  0, sig: "3 sharps", hour: 3 },
-  { label: "E",  sub: null, rel: "C♯m", semitoneFromA4: -5, sig: "4 sharps", hour: 4 },
-  { label: "B",  sub: null, rel: "G♯m", semitoneFromA4:  2, sig: "5 sharps", hour: 5 },
-  { label: "F♯", sub: "G♭", rel: "D♯m", semitoneFromA4: -3, sig: "6 sharps / 6 flats", hour: 6 },
-  { label: "D♭", sub: "C♯", rel: "B♭m", semitoneFromA4: -8, sig: "5 flats",  hour: 7 },
-  { label: "A♭", sub: null, rel: "Fm",  semitoneFromA4: -1, sig: "4 flats",  hour: 8 },
-  { label: "E♭", sub: null, rel: "Cm",  semitoneFromA4: -6, sig: "3 flats",  hour: 9 },
-  { label: "B♭", sub: null, rel: "Gm",  semitoneFromA4:  1, sig: "2 flats",  hour: 10 },
-  { label: "F",  sub: null, rel: "Dm",  semitoneFromA4: -4, sig: "1 flat",   hour: 11 },
-].map((note) => ({ ...note, etFreq: etFreqOf(note.semitoneFromA4) }));
-
-// Spiral tour: literal ascending pure fifths from C2.
-// Each step multiplies by exactly 3/2, so twelve steps overshoot seven octaves
-// by the Pythagorean comma — the spiral never closes back on C.
-const C2 = 65.406;
-const spiralFreqOf = (fifthSteps) => C2 * Math.pow(3 / 2, fifthSteps);
-
-// The app teaches from its own maths: these are computed, not quoted.
-const centsOf = (ratio) => 1200 * Math.log2(ratio);
-const PYTHAGOREAN_COMMA_RATIO = Math.pow(3 / 2, 12) / Math.pow(2, 7); // ≈ 1.01364
-const PYTHAGOREAN_COMMA_CENTS = centsOf(PYTHAGOREAN_COMMA_RATIO);      // ≈ 23.46
-const ET_FIFTH_FLATTENING_CENTS = centsOf(3 / 2) - 700;                // ≈ 1.955
-
-// Sustained-fifth lab: the audible case for temperament. A pure fifth's
-// harmonics coincide (3×C4 = 2×G4 exactly); the tempered fifth's miss by a
-// hair, and that near-miss is heard — and shown — as a slow beat.
-const C4_FREQ = etFreqOf(-9);
-const G4_ET = etFreqOf(-2);
-const BEAT_HZ = Math.abs(3 * C4_FREQ - 2 * G4_ET); // ≈ 0.886
-const BEAT_PERIOD_S = 1 / BEAT_HZ;                  // ≈ 1.129
+import {
+  BEAT_HZ,
+  BEAT_PERIOD_S,
+  C4_FREQ,
+  CAPTIONS,
+  ET_FIFTH_FLATTENING_CENTS,
+  FIFTH_CHAIN_LABELS,
+  G4_ET,
+  NOTES,
+  PYTHAGOREAN_COMMA_CENTS,
+  spiralFreqOf,
+} from "./musicMath";
+import {
+  closeAudioEngine,
+  fadeOutDyad,
+  getAudioEngine,
+  playStrike,
+  startHeldFifth,
+} from "./audioEngine";
 
 // Palette in OKLCH (perceptually uniform; animations below move only L/C).
 const BRASS = "oklch(0.728 0.138 89.7)";
@@ -56,20 +26,6 @@ const DIM = "oklch(0.524 0.006 95.2)";
 const FAINT = "oklch(0.286 0.004 286.2)";
 const BG = "oklch(0.164 0.002 286.2)";
 const BTN_BORDER = "oklch(0.349 0.003 286.2)";
-
-// Spelling along the literal fifth chain (spiral tour). Step 7 is C♯, not D♭ —
-// the face keeps the key-signature spelling; the chain keeps its own.
-const FIFTH_CHAIN_LABELS = [
-  "C", "G", "D", "A", "E", "B", "F♯", "C♯", "G♯", "D♯", "A♯", "E♯/F", "B♯ (≈C)",
-];
-
-const CAPTIONS = {
-  idle: `Tap any note to hear its 12-TET pitch · the breathing dot marks the hour`,
-  circle: `Twelve fifths, each tempered ${ET_FIFTH_FLATTENING_CENTS.toFixed(2)}¢ narrow of pure 3:2 — the thread closes because every step absorbs its share of the comma.`,
-  spiral: `Twelve pure 3:2 fifths rising from C2 overshoot seven octaves by ${PYTHAGOREAN_COMMA_CENTS.toFixed(2)}¢ — the thread misses its start by the Pythagorean comma.`,
-  pure: `Pure fifth · 3:2 — the third harmonic of C lands exactly on the second harmonic of G. The sound locks.`,
-  tempered: `Tempered fifth · 2^(7/12) — those harmonics miss by ${BEAT_HZ.toFixed(2)} Hz. The slow beat you hear (and see) is the price of a circle that closes.`,
-};
 
 export default function TemperamentClock() {
   const [now, setNow] = useState(() => new Date());
@@ -81,12 +37,12 @@ export default function TemperamentClock() {
   const [tourNow, setTourNow] = useState(0);
   const [lastTour, setLastTour] = useState(null); // caption persists after a tour ends
   const [dyad, setDyad] = useState(null); // null | "pure" | "tempered"
-  const audioCtxRef = useRef(null);
+  const audioEngineRef = useRef(null);
   const dyadNodesRef = useRef(null);
   const lastHourRef = useRef(null);
   // Sync the CSS-driven second hand to real time once at mount.
-  const secOffsetRef = useRef((Date.now() / 1000) % 60);
-  const reducedMotion = useRef(
+  const [secOffset] = useState(() => (Date.now() / 1000) % 60);
+  const [prefersReducedMotion] = useState(
     typeof window !== "undefined" &&
       window.matchMedia &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches
@@ -101,7 +57,7 @@ export default function TemperamentClock() {
 
   // The tour thread animates per-frame, but only while a tour is on screen.
   useEffect(() => {
-    if (!tourAnim || reducedMotion.current) return;
+    if (!tourAnim || prefersReducedMotion) return;
     let raf;
     const loop = () => {
       setTourNow(Date.now());
@@ -109,34 +65,15 @@ export default function TemperamentClock() {
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [tourAnim]);
+  }, [prefersReducedMotion, tourAnim]);
 
-  const getCtx = useCallback(() => {
-    if (!audioCtxRef.current) {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      // Master limiter: overlapping strikes sum their gains, and anything
-      // past 0 dBFS clips harshly. A hard-ratio compressor before the
-      // destination catches spikes gracefully instead.
-      const limiter = ctx.createDynamicsCompressor();
-      limiter.threshold.value = -3;
-      limiter.ratio.value = 20;
-      limiter.attack.value = 0.005;
-      limiter.connect(ctx.destination);
-      audioCtxRef.current = { ctx, destination: limiter };
-    }
-    if (audioCtxRef.current.ctx.state === "suspended") {
-      audioCtxRef.current.ctx.resume();
-    }
-    return audioCtxRef.current;
-  }, []);
+  const getAudio = useCallback(() => getAudioEngine(audioEngineRef), []);
 
   // If the component unmounts mid-tour, scheduled oscillators would keep
   // ringing on the audio thread. Shut the engine down with the component.
   useEffect(() => {
     return () => {
-      if (audioCtxRef.current?.ctx) {
-        audioCtxRef.current.ctx.close();
-      }
+      closeAudioEngine(audioEngineRef);
     };
   }, []);
 
@@ -149,34 +86,7 @@ export default function TemperamentClock() {
 
   const strike = useCallback(
     (idx, when = 0, dur = 2.4, mode = "et") => {
-      const { ctx, destination } = getCtx();
-      const t = ctx.currentTime + when;
-      const f = freqFor(idx, mode);
-      const master = ctx.createGain();
-      master.gain.value = 0.0001;
-      master.connect(destination);
-      const partials = [
-        { ratio: 1, gain: 0.5 },
-        { ratio: 2.0, gain: 0.18 },
-        { ratio: 2.98, gain: 0.09 },
-        { ratio: 4.2, gain: 0.04 },
-      ].filter((p) => f * p.ratio < 12000); // drop very high partials that turn harsh up the spiral
-      partials.forEach((p) => {
-        const osc = ctx.createOscillator();
-        const g = ctx.createGain();
-        osc.type = "sine";
-        osc.frequency.value = f * p.ratio;
-        g.gain.setValueAtTime(0.0001, t);
-        g.gain.exponentialRampToValueAtTime(p.gain, t + 0.015);
-        g.gain.exponentialRampToValueAtTime(0.0001, t + dur * (1 - p.ratio * 0.12));
-        osc.connect(g);
-        g.connect(master);
-        osc.start(t);
-        osc.stop(t + dur);
-      });
-      master.gain.setValueAtTime(0.0001, t);
-      master.gain.exponentialRampToValueAtTime(0.9, t + 0.02);
-      master.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      playStrike({ engine: getAudio(), frequency: freqFor(idx, mode), when, duration: dur });
       setTimeout(() => {
         setActiveIdx(idx % 12);
         setActiveStep(idx);
@@ -186,18 +96,13 @@ export default function TemperamentClock() {
         }, 1400);
       }, when * 1000);
     },
-    [freqFor, getCtx]
+    [freqFor, getAudio]
   );
 
   const stopDyad = useCallback(() => {
     const d = dyadNodesRef.current;
-    if (d && audioCtxRef.current) {
-      const { ctx } = audioCtxRef.current;
-      const t = ctx.currentTime;
-      d.master.gain.cancelScheduledValues(t);
-      d.master.gain.setValueAtTime(Math.max(d.master.gain.value, 0.0001), t);
-      d.master.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
-      d.oscs.forEach((o) => o.stop(t + 0.45));
+    if (d && audioEngineRef.current) {
+      fadeOutDyad(audioEngineRef.current, d);
       dyadNodesRef.current = null;
     }
     setDyad(null);
@@ -209,31 +114,7 @@ export default function TemperamentClock() {
       return;
     }
     stopDyad();
-    const { ctx, destination } = getCtx();
-    const t = ctx.currentTime;
-    const master = ctx.createGain();
-    master.gain.setValueAtTime(0.0001, t);
-    master.gain.exponentialRampToValueAtTime(0.5, t + 0.6);
-    master.connect(destination);
-    const oscs = [];
-    // Exact integer harmonics, so the beat between 3×C and 2×G is physically
-    // real rather than an effect: it emerges from the tuning itself.
-    const freqs = [C4_FREQ, kind === "pure" ? C4_FREQ * 1.5 : G4_ET];
-    const harmonicGains = [0.3, 0.1, 0.05];
-    freqs.forEach((f) => {
-      harmonicGains.forEach((gain, h) => {
-        const osc = ctx.createOscillator();
-        const g = ctx.createGain();
-        osc.type = "sine";
-        osc.frequency.value = f * (h + 1);
-        g.gain.value = gain;
-        osc.connect(g);
-        g.connect(master);
-        osc.start(t);
-        oscs.push(osc);
-      });
-    });
-    dyadNodesRef.current = { master, oscs };
+    dyadNodesRef.current = startHeldFifth({ engine: getAudio(), kind, c4Freq: C4_FREQ, g4Et: G4_ET });
     setDyad(kind);
   };
 
@@ -262,7 +143,7 @@ export default function TemperamentClock() {
     stopDyad();
     setTouring(true);
     setLastTour(mode);
-    getCtx();
+    getAudio();
     const steps = mode === "spiral" ? 13 : 12;
     for (let i = 0; i < steps; i++) strike(i, i * 0.55, 1.6, mode);
     setTimeout(() => setTouring(false), steps * 550 + 800);
@@ -273,7 +154,7 @@ export default function TemperamentClock() {
   };
 
   const C = 200;
-  const smooth = !reducedMotion.current;
+  const smooth = !prefersReducedMotion;
   const secAngle = (seconds / 60) * 360; // only used under reduced motion
   const minAngle = ((minutes + seconds / 60) / 60) * 360;
   const hrAngle = (((hours % 12) + minutes / 60) / 12) * 360;
@@ -284,7 +165,6 @@ export default function TemperamentClock() {
   };
 
   // Static geometry: the tick ring never moves, so build it once.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const clockTicks = useMemo(
     () =>
       Array.from({ length: 60 }, (_, i) => {
@@ -521,7 +401,7 @@ export default function TemperamentClock() {
             start by the Pythagorean comma — the gap made visible, to scale. */}
         {tourAnim && (() => {
           // Clamp below at 0: the tour clock starts on the first rAF after launch.
-          const clock = reducedMotion.current ? now.getTime() : tourNow;
+          const clock = prefersReducedMotion ? now.getTime() : tourNow;
           const elapsed = Math.max(0, clock - tourAnim.startedAt);
           const spiral = tourAnim.mode === "spiral";
           const p = Math.min(elapsed / 550, 12);
@@ -572,7 +452,7 @@ export default function TemperamentClock() {
               <line x1={C} y1={C} x2={hx} y2={hy} stroke={INK} strokeWidth="4.5" strokeLinecap="round" />
               <line x1={C} y1={C} x2={mx} y2={my} stroke={INK} strokeWidth="2.4" strokeLinecap="round" />
               {smooth ? (
-                <g className="sec-sweep" style={{ animationDelay: `-${secOffsetRef.current.toFixed(3)}s` }}>
+                <g className="sec-sweep" style={{ animationDelay: `-${secOffset.toFixed(3)}s` }}>
                   <line x1={C} y1={C + 24} x2={C} y2={C - 150} stroke={BRASS} strokeWidth="0.9" strokeLinecap="round" opacity="0.85" />
                 </g>
               ) : (
@@ -625,7 +505,7 @@ export default function TemperamentClock() {
         <button
           className={`btn ${soundOn ? "active" : ""}`}
           onClick={() => {
-            getCtx();
+            getAudio();
             setSoundOn((s) => !s);
           }}
         >
