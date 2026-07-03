@@ -584,7 +584,7 @@ export default function TemperamentClock() {
           onClick={hearTheProblem}
           disabled={touring && !guided}
         >
-          {guided ? "listening… · tap to stop" : "hear the problem"}
+          {guided === "spiral" ? "watching the comma…" : guided ? "listening… · tap to stop" : "hear the problem"}
         </button>
 
         <div className="control-pair">

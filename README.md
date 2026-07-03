@@ -36,8 +36,9 @@ arithmetic at runtime, not quoted.
   locks (3×C lands exactly on 2×G). The tempered fifth's harmonics miss by
   0.89 Hz, heard as a slow beat — and shown as a glow on C and G whose OKLCH
   lightness oscillates at exactly that computed period.
-- **Hourly chime** — the clock strikes the hour's pitch. Tap any note to hear
-  it; notes are keyboard-accessible (Tab + Enter).
+- **Hear the problem** — a guided first listen moves from pure fifth, to
+  tempered beat, to the pure-fifths spiral that misses home. Tap any note to
+  hear it; notes are keyboard-accessible (Tab + Enter).
 
 ## Notes on the build
 
