@@ -255,8 +255,6 @@ export default function TemperamentClock() {
   return (
     <div className="page">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@300;400;500&display=swap');
-
         .page {
           min-height: 100vh;
           background: radial-gradient(ellipse 70% 55% at 50% 34%, oklch(0.196 0.004 286.2) 0%, ${BG} 68%);
@@ -330,6 +328,9 @@ export default function TemperamentClock() {
           color: oklch(0.97 0.005 89);
         }
         .btn.active { background: ${BRASS}; color: ${BG}; border-color: ${BRASS}; }
+        /* An active button reads as active even when locked out during its
+           own tour — keep its brass full-strength rather than dimming it. */
+        .btn.active:disabled { opacity: 1; }
         /* First-run invitation: primary by brass, not by size or chrome. */
         .btn-invite { border-color: oklch(0.728 0.138 89.7 / 0.65); color: ${BRASS}; }
         .btn-invite:hover:not(:disabled) { border-color: ${BRASS}; color: oklch(0.82 0.15 90); }
@@ -587,10 +588,18 @@ export default function TemperamentClock() {
         </button>
 
         <div className="control-pair">
-          <button className="btn" onClick={() => runTour("circle")} disabled={touring || !!guided}>
+          <button
+            className={`btn ${touring && lastTour === "circle" ? "active" : ""}`}
+            onClick={() => runTour("circle")}
+            disabled={touring || !!guided}
+          >
             {touring && lastTour === "circle" ? "touring…" : "tour the circle"}
           </button>
-          <button className="btn" onClick={() => runTour("spiral")} disabled={touring || !!guided}>
+          <button
+            className={`btn ${touring && lastTour === "spiral" ? "active" : ""}`}
+            onClick={() => runTour("spiral")}
+            disabled={touring || !!guided}
+          >
             {touring && lastTour === "spiral" ? "climbing…" : "climb the spiral"}
           </button>
         </div>
