@@ -586,6 +586,21 @@ export default function TemperamentClock() {
         </div>
       </div>
 
+      <div
+        style={{
+          marginTop: 18,
+          fontSize: 11,
+          color: DIM,
+          letterSpacing: "0.16em",
+          textAlign: "center",
+        }}
+      >
+        PYTHAGOREAN COMMA ·{" "}
+        <span style={{ color: BRASS, letterSpacing: "0.04em" }}>
+          {PYTHAGOREAN_COMMA_CENTS.toFixed(2)}¢
+        </span>
+      </div>
+
       <div className="controls">
         <button
           className={`btn btn-primary ${guided ? "active" : !guidedUsed ? "btn-invite" : ""}`}
@@ -636,6 +651,7 @@ export default function TemperamentClock() {
           lineHeight: 1.8,
           minHeight: 54,
           textTransform: "uppercase",
+          whiteSpace: "pre-line",
         }}
       >
         {captionText}

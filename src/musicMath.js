@@ -33,7 +33,7 @@ export const BEAT_HZ = Math.abs(3 * C4_FREQ - 2 * G4_ET);
 export const BEAT_PERIOD_S = 1 / BEAT_HZ;
 
 export const CAPTIONS = {
-  invite: "Start here: twelve pure fifths do not close the circle.",
+  invite: "Twelve pure 3:2 fifths overshoot seven octaves.\nThe gap is the Pythagorean comma.",
   idle: "Tap any note to hear its 12-TET pitch · the breathing dot marks the hour",
   // Terse copy for the guided sequence; the longer captions below remain for
   // manual use and take over once the sequence hands off to the spiral tour.
